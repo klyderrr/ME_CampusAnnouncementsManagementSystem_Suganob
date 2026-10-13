@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Campus Announcements</title>
+  <style>
+    body {
+      max-width: 1100px;
+      margin: 2rem auto;
+      padding: 0 1rem;
+      font-family: Arial, sans-serif;
+    }
+
+    section {
+      margin-bottom: 1rem;
+      padding: 1rem;
+      border: 1px grey solid;
+    }
+
+    input,
+    button {
+      padding: .5rem;
+      margin: 0 .25rem .5rem 0;
+    }
+
+    button {
+      color: white;
+      background: blue;
+      border: 0;
+      cursor: pointer;
+    }
+
+    button.danger {
+      background: red;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    th,
+    td {
+      padding: .5rem;
+      text-align: left;
+      border-bottom: 1px black solid;
+    }
+
+    #message {
+      min-height: 1.4rem;
+      font-weight: bold;
+    }
+
+    .error {
+      color: red;
+    }
+
+    .ok {
+      color: green;
+    }
+  </style>
+</head>
+<body>
+  <h1>Campus Announcements</h1>
+  <p id="message"></p>
+
+  <section>
+    <h2>Search by ID</h2>
+    <input type="number" id="searchId" placeholder="Announcement ID">
+    <button onclick="searchAnnouncement()">Search</button>
+    <button onclick="loadAnnouncements()">Show all</button>
+  </section>
+
+  <section>
+    <h2>Add an announcement</h2>
+    <input id="title" placeholder="Title">
+    <input id="messageText" placeholder="Message">
+    <input type="date" id="datePosted">
+    <input type="date" id="expiryDate">
+    <input id="category" placeholder="Category">
+    <button onclick="addAnnouncement()">Add</button>
+  </section>
+
+  <section>
+    <h2>Records</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Title</th>
+          <th>Message</th>
+          <th>Posted</th>
+          <th>Expires</th>
+          <th>Category</th>
+          <th>Status</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="tableBody"></tbody>
+    </table>
+  </section>
+
+  <script>
+    const API = '/api/announcements';
+
+    function showMessage(text, isError) {
+      const el = document.getElementById('message');
+      el.textContent = text;
+      el.className = isError ? 'error' : 'ok';
+    }
+
+    function render(announcements) {
+      const body = document.getElementById('tableBody');
+      body.innerHTML = '';
+      if (!announcements.length) {
+        body.innerHTML = '<tr><td colspan="8">No announcements.</td></tr>';
+        return;
+      }
+      announcements.forEach(announcement => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${announcement.id}</td>
+          <td>${announcement.title}</td>
+          <td>${announcement.message || ''}</td>
+          <td>${announcement.date_posted}</td>
+          <td>${announcement.expiry_date}</td>
+          <td>${announcement.category}</td>
+          <td>${announcement.status}</td>
+          <td>
+            <button class="danger" onclick="deleteAnnouncement(${announcement.id})">Delete</button>
+          </td>`;
+        body.appendChild(tr);
+      });
+    }
+
+    async function loadAnnouncements() {
+      const res = await fetch(API);
+      render(await res.json());
+    }
+
+    async function searchAnnouncement() {
+      const id = document.getElementById('searchId').value;
+      if (!id) return showMessage('Enter an ID to search.', true);
+      const res = await fetch(`${API}/${id}`);
+      const data = await res.json();
+      if (!res.ok) { render([]); return showMessage(data.error, true); }
+      render([data]);
+    }
+
+    async function addAnnouncement() {
+      const body = {
+        title: document.getElementById('title').value.trim(),
+        message: document.getElementById('messageText').value.trim(),
+        date_posted: document.getElementById('datePosted').value,
+        expiry_date: document.getElementById('expiryDate').value,
+        category: document.getElementById('category').value.trim()
+      };
+      const res = await fetch(API, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      const data = await res.json();
+      if (!res.ok) return showMessage(data.error, true);
+      ['title', 'messageText', 'datePosted', 'expiryDate', 'category'].forEach(id => document.getElementById(id).value = '');
+      loadAnnouncements();
+    }
+
+    async function deleteAnnouncement(id) {
+      const res = await fetch(`${API}/${id}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (!res.ok) return showMessage(data.error, true);
+      showMessage('Announcement deleted.', false);
+      loadAnnouncements();
+    }
+
+    loadAnnouncements();
+  </script>
+</body>
+</html>
